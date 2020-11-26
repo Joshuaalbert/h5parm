@@ -1,11 +1,6 @@
 import logging
-
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
-
-###
-# constants
-TEC_CONV = -8.4479745e6 # mTECU/Hz
-KERNEL_SCALE = 0.1 #(1e9*1e3*1e-16*1e3)
+from h5parm.datapack import DataPack, update_h5parm
 
 ###
 # depreciated decorator

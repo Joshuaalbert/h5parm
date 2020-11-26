@@ -2,7 +2,6 @@ import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 import os
-from h5parm import TEC_CONV
 from h5parm.datapack import DataPack
 import astropy.time as at
 import astropy.coordinates as ac
@@ -35,7 +34,7 @@ def make_example_datapack(Nd, Nf, Nt, pols=None,
 
     Returns: DataPack
     """
-
+    TEC_CONV = -8.4479745e6  # mTECU/Hz
     np.random.seed(seed)
 
     logger.info("=== Creating example datapack ===")
