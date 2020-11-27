@@ -78,3 +78,59 @@ def make_example_datapack(Nd, Nf, Nt, pols=None,
         datapack.add_soltab('amplitude000', values=amp, ant=antenna_labels, dir = patch_names, time=times, freq=freqs, pol=pols)
         datapack.add_soltab('tec000', values=dtecs, ant=antenna_labels, dir = patch_names, time=times, pol=pols)
         return datapack
+
+def make_soltab(datapack:DataPack, from_solset='sol000', to_solset='sol000', from_soltab='phase000', to_soltab='tec000',
+                select=None, directions=None, patch_names=None, remake_solset=False):
+    """
+    Adds a new soltab to the h5parm with a soltab copying over structure from preexisting solset/soltab.
+    Args:
+        datapack: DataPack to alter, should be writable.
+        from_solset: solset to copy from
+        to_solset: solset to copy to/create
+        from_soltab: soltab to copy structure from
+        to_soltab: soltab to copy to
+        select: dict, axes section, or None
+        directions: ICRS of directions, or None to copy over (useful for adding extra directions but keep else the same)
+        patch_names: patch_names corresponding to directions, or None
+        remake_solset: bool, whether to forcefully delete the solset and remake.
+    """
+    if not isinstance(to_soltab, (list, tuple)):
+        to_soltab = [to_soltab]
+    if select is None:
+        select = dict(ant = None, time = None, dir = None, freq = None, pol = slice(0,1,1))
+
+    with datapack:
+        datapack.current_solset = from_solset
+        datapack.select(**select)
+        axes = getattr(datapack, "axes_{}".format(from_soltab.replace('000', '')))
+        antenna_labels, antennas = datapack.get_antennas(axes['ant'])
+        if directions is None or patch_names is None:
+            patch_names, directions = datapack.get_directions(axes['dir'])
+        timestamps, times = datapack.get_times(axes['time'])
+        freq_labels, freqs = datapack.get_freqs(axes['freq'])
+        pol_labels, pols = datapack.get_pols(axes['pol'])
+        Npol, Nd, Na, Nf, Nt = len(pols), len(directions), len(antennas), len(freqs), len(times)
+        if remake_solset:
+            if to_solset in datapack.solsets:
+                datapack.delete_solset(to_solset)
+        if to_solset not in datapack.solsets:
+            datapack.add_solset(to_solset,
+                                array_file=DataPack.lofar_array,
+                                directions=np.stack([directions.ra.to(au.rad).value,
+                                                     directions.dec.to(au.rad).value], axis=1),
+                                patch_names=patch_names)
+        if 'tec000' in to_soltab:
+            datapack.add_soltab('tec000', weightDtype='f16', time=times.mjd * 86400., pol=pol_labels, ant=antenna_labels,
+                                dir=patch_names)
+        if 'clock000' in to_soltab:
+            datapack.add_soltab('clock000', weightDtype='f16', time=times.mjd * 86400., pol=pol_labels,
+                                ant=antenna_labels, dir=patch_names)
+        if 'const000' in to_soltab:
+            datapack.add_soltab('const000', weightDtype='f16', time=times.mjd * 86400., pol=pol_labels,
+                                ant=antenna_labels, dir=patch_names)
+        if 'phase000' in to_soltab:
+            datapack.add_soltab('phase000', weightDtype='f16', freq=freqs, time=times.mjd * 86400., pol=pol_labels,
+                                ant=antenna_labels, dir=patch_names)
+        if 'amplitude000' in to_soltab:
+            datapack.add_soltab('amplitude000', weightDtype='f16', freq=freqs, time=times.mjd * 86400., pol=pol_labels,
+                                ant=antenna_labels, dir=patch_names)
