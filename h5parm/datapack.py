@@ -12,7 +12,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from h5parm import deprecated
+from h5parm.maintenance import deprecated
 
 
 def _load_array_file(array_file):

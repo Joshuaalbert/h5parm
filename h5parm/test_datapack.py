@@ -1,5 +1,6 @@
 from h5parm.utils import make_example_datapack
 import numpy as np
+import pytest
 
 def test_datapack():
     datapack = make_example_datapack(4,5,6,["X"],clobber=True)
@@ -18,3 +19,8 @@ def test_datapack():
     for  a in axes['ant']:
         assert b'RS' in a
     assert len(axes['ant']) == 14
+    datapack.select(time=[1,3], dir=[0,1,3])
+    phase, axes = datapack.phase
+    with pytest.raises(IndexError):
+        datapack.select(time=[0, 1, 3], dir=[0, 1, 3])
+        phase, axes = datapack.phase
