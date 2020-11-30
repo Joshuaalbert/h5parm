@@ -765,7 +765,7 @@ class DataPack(object):
 
     def get_freqs(self, freqs):
         labs = ['{:.1f}MHz'.format(f / 1e6) for f in freqs]
-        return np.array(labs), freqs
+        return np.array(labs), freqs*au.Hz
 
     def get_pols(self, pols):
         with self:
