@@ -133,19 +133,22 @@ def make_soltab(datapack:DataPack, from_solset='sol000', to_solset='sol000', fro
                                 directions=np.stack([directions.ra.to(au.rad).value,
                                                      directions.dec.to(au.rad).value], axis=1),
                                 patch_names=patch_names)
-        if 'tec000' in to_soltab:
-            datapack.add_soltab('tec000', weightDtype='f16', time=times.mjd * 86400., pol=pol_labels,
-                                ant=antenna_labels,
-                                dir=patch_names)
-        if 'clock000' in to_soltab:
-            datapack.add_soltab('clock000', weightDtype='f16', time=times.mjd * 86400., pol=pol_labels,
-                                ant=antenna_labels, dir=patch_names)
-        if 'const000' in to_soltab:
-            datapack.add_soltab('const000', weightDtype='f16', time=times.mjd * 86400., pol=pol_labels,
-                                ant=antenna_labels, dir=patch_names)
-        if 'phase000' in to_soltab:
-            datapack.add_soltab('phase000', weightDtype='f16', freq=freqs, time=times.mjd * 86400., pol=pol_labels,
-                                ant=antenna_labels, dir=patch_names)
-        if 'amplitude000' in to_soltab:
-            datapack.add_soltab('amplitude000', weightDtype='f16', freq=freqs, time=times.mjd * 86400., pol=pol_labels,
-                                ant=antenna_labels, dir=patch_names)
+        for soltab in to_soltab:
+            if not soltab.endswith("000"):
+                raise ValueError("By Losoto convention soltabs should end in XXX or similar. We only support XXX=000.")
+            if 'tec' in soltab:
+                datapack.add_soltab(soltab, weightDtype='f16', time=times.mjd * 86400., pol=pol_labels,
+                                    ant=antenna_labels,
+                                    dir=patch_names)
+            if 'clock' in soltab:
+                datapack.add_soltab(soltab, weightDtype='f16', time=times.mjd * 86400., pol=pol_labels,
+                                    ant=antenna_labels, dir=patch_names)
+            if 'const' in soltab:
+                datapack.add_soltab(soltab, weightDtype='f16', time=times.mjd * 86400., pol=pol_labels,
+                                    ant=antenna_labels, dir=patch_names)
+            if 'phase' in soltab:
+                datapack.add_soltab(soltab, weightDtype='f16', freq=freqs, time=times.mjd * 86400., pol=pol_labels,
+                                    ant=antenna_labels, dir=patch_names)
+            if 'amplitude' in soltab:
+                datapack.add_soltab(soltab, weightDtype='f16', freq=freqs, time=times.mjd * 86400., pol=pol_labels,
+                                    ant=antenna_labels, dir=patch_names)

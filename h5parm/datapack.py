@@ -431,7 +431,8 @@ class DataPack(object):
         self._selection = None
 
     @property
-    def allowed_soltabs(self):
+    def allowed_soltab_prefixes(self):
+        # return [soltab.replace("000","") for soltab in self.soltabs]
         return ['phase', 'amplitude', 'tec', 'clock', 'const']
 
     def soltab_axes(self, soltab):
@@ -599,11 +600,11 @@ class DataPack(object):
         """
         #        with self:
         #            tabs = self._solset.getSoltabNames()
-        tabs = self.allowed_soltabs
+        tabs = self.allowed_soltab_prefixes
         tabs = ["weights_{}".format(t) for t in tabs] + ["axes_{}".format(t) for t in tabs] + tabs
         weight = False
         axes = False
-        if tab in tabs:
+        if any([tab.startswith(t) for t in tabs]):
             if tab.startswith("weights_"):
                 tab = "".join(tab.split('weights_')[1:])
                 weight = True
@@ -653,11 +654,11 @@ class DataPack(object):
 
         #        with self:
         #            tabs = self._solset.getSoltabNames()
-        tabs = self.allowed_soltabs
+        tabs = self.allowed_soltab_prefixes
         tabs = ["weights_{}".format(t) for t in tabs] + ["axes_{}".format(t) for t in tabs] + tabs
         weight = False
         axes = False
-        if tab in tabs:
+        if any([tab.startswith(t) for t in tabs]):
             if tab.startswith("weights_"):
                 tab = "".join(tab.split('weights_')[1:])
                 weight = True
