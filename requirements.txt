@@ -2,3 +2,4 @@ astropy
 tables
 numpy
 pytest
+dask
