@@ -17,10 +17,107 @@ def wrap(phi):
     """
     return (phi + np.pi) % (2 * np.pi) - np.pi
 
+def create_empty_datapack(Nd, Nf, Nt, pols=None,
+                          field_of_view_diameter=4.,
+                          start_time=None,
+                          time_resolution=30.,
+                          min_freq=122.,
+                          max_freq=166.,
+                          array_file=None,
+                          phase_tracking=None,
+                          save_name='test_datapack.h5',
+                          clobber=False) -> DataPack:
+    """
+    Creates an empty datapack with phase, amplitude and DTEC.
+
+    Args:
+        Nd: number of directions
+        Nf: number of frequencies
+        Nt: number of times
+        pols: polarisations, ['XX', ...]
+        array_file: array file else Lofar HBA is used
+        phase_tracking: tuple (RA, DEC) in degrees in ICRS frame
+        field_of_view_diameter: FoV diameter in degrees
+        start_time: start time in modified Julian days (mjs/86400)
+        time_resolution: time step in seconds.
+        min_freq: minimum frequency in MHz
+        max_freq: maximum frequency in MHz
+        save_name: where to save the H5parm.
+        clobber: Whether to overwrite.
+
+    Returns:
+        DataPack
+    """
+
+    logger.info("=== Creating empty datapack ===")
+
+    save_name = os.path.abspath(save_name)
+    if os.path.isfile(save_name) and clobber:
+        os.unlink(save_name)
+
+    if array_file is None:
+        array_file = DataPack.lofar_array_hba
+
+    if start_time is None:
+        start_time = at.Time("2019-01-01T00:00:00.000", format='isot').mjd
+
+    if pols is None:
+        pols = ['XX']
+    assert isinstance(pols, (tuple, list))
+
+    time0 = at.Time(start_time, format='mjd')
+
+    datapack = DataPack(save_name, readonly=False)
+    with datapack:
+        datapack.add_solset('sol000', array_file=array_file)
+
+        altaz = ac.AltAz(location=datapack.array_center.earth_location, obstime=time0)
+        if phase_tracking is None:
+            up = ac.SkyCoord(alt=90. * au.deg, az=0. * au.deg, frame=altaz).transform_to('icrs')
+            phase_tracking = (up.ra.deg, up.dec.deg)
+        phase_tracking = ac.ICRS(phase_tracking[0]*au.deg, phase_tracking[1]*au.deg)
+        up = phase_tracking.transform_to(altaz)
+        if up.alt.deg < 0.:
+            logger.warning("Phase tracking center below horizon at start of observation.")
+        phase_tracking = (phase_tracking.ra.rad, phase_tracking.dec.rad)
+        directions = get_uniform_directions(Nd, phase_tracking, field_of_view_diameter)
+        datapack.set_directions(None, directions)
+        patch_names, _ = datapack.directions
+        antenna_labels, _ = datapack.antennas
+        _, antennas = datapack.get_antennas(antenna_labels)
+        antennas = antennas.cartesian.xyz.to(au.km).value.T
+        Na = antennas.shape[0]
+
+        times = at.Time(time0.mjd + (np.arange(Nt) * time_resolution)/86400., format='mjd').mjd * 86400.  # mjs
+        freqs = np.linspace(min_freq, max_freq, Nf) * 1e6
+
+
+        Npol = len(pols)
+        dtecs = np.zeros((Npol, Nd, Na, Nt))
+        phase = np.zeros((Npol, Nd, Na, Nf, Nt))
+        amp = np.ones_like(phase)
+
+        datapack.add_soltab('phase000', values=phase, ant=antenna_labels, dir=patch_names, time=times, freq=freqs,
+                            pol=pols)
+        datapack.add_soltab('amplitude000', values=amp, ant=antenna_labels, dir=patch_names, time=times, freq=freqs,
+                            pol=pols)
+        datapack.add_soltab('tec000', values=dtecs, ant=antenna_labels, dir=patch_names, time=times, pol=pols)
+        return datapack
+
+
+def get_uniform_directions(Nd, phase_tracking, field_of_view_diameter):
+    unit_directions = np.random.normal(size=(Nd, 2))
+    unit_directions *= (np.pi / 180. * field_of_view_diameter / 2.) * np.linalg.norm(unit_directions, axis=1,
+                                                                                     keepdims=True)
+    directions = unit_directions * np.sqrt(np.random.uniform(0., 1., size=(Nd, 1)))
+    directions = directions + np.asarray(phase_tracking)
+    return directions
+
+
 def make_example_datapack(Nd, Nf, Nt, pols=None,
                           save_name='test_datapack.h5',
                           clobber=False,
-                          seed=0):
+                          seed=0) -> DataPack:
     """
     Create a H5Parm for testing
     Args:
@@ -48,8 +145,7 @@ def make_example_datapack(Nd, Nf, Nt, pols=None,
         time0 = at.Time("2019-01-01T00:00:00.000", format='isot')
         altaz = ac.AltAz(location=datapack.array_center.earth_location, obstime=time0)
         up = ac.SkyCoord(alt=90.*au.deg,az=0.*au.deg,frame=altaz).transform_to('icrs')
-        directions = np.stack([np.random.normal(up.ra.rad, np.pi / 180. * 3.5, size=[Nd]),
-                               np.random.normal(up.dec.rad, np.pi / 180. * 3.5, size=[Nd])],axis=1)
+        directions = get_uniform_directions(Nd, up, 3.5)
         datapack.set_directions(None,directions)
         patch_names, _ = datapack.directions
         antenna_labels, _ = datapack.antennas
