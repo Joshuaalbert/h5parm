@@ -26,7 +26,8 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
                           array_file=None,
                           phase_tracking=None,
                           save_name='test_datapack.h5',
-                          clobber=False) -> DataPack:
+                          clobber=False,
+                          seed=None) -> DataPack:
     """
     Creates an empty datapack with phase, amplitude and DTEC.
 
@@ -44,13 +45,15 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
         max_freq: maximum frequency in MHz
         save_name: where to save the H5parm.
         clobber: Whether to overwrite.
+        seed: Numpy seed int
 
     Returns:
         DataPack
     """
 
     logger.info("=== Creating empty datapack ===")
-
+    if seed is not None:
+        np.random.seed(seed)
     save_name = os.path.abspath(save_name)
     if os.path.isfile(save_name) and clobber:
         os.unlink(save_name)
@@ -79,6 +82,8 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
         up = phase_tracking.transform_to(altaz)
         if up.alt.deg < 0.:
             logger.warning("Phase tracking center below horizon at start of observation.")
+        else:
+            logger.info(f"Phase tracking altitude: {up.alt.deg} degrees")
         phase_tracking = (phase_tracking.ra.rad, phase_tracking.dec.rad)
         directions = get_uniform_directions(Nd, phase_tracking, field_of_view_diameter)
         datapack.set_directions(None, directions)
@@ -107,7 +112,7 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
 
 def get_uniform_directions(Nd, phase_tracking, field_of_view_diameter):
     unit_directions = np.random.normal(size=(Nd, 2))
-    unit_directions *= (np.pi / 180. * field_of_view_diameter / 2.) * np.linalg.norm(unit_directions, axis=1,
+    unit_directions *= (np.pi / 180. * field_of_view_diameter / 2.) / np.linalg.norm(unit_directions, axis=1,
                                                                                      keepdims=True)
     directions = unit_directions * np.sqrt(np.random.uniform(0., 1., size=(Nd, 1)))
     directions = directions + np.asarray(phase_tracking)
