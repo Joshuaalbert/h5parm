@@ -107,7 +107,7 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
 
 def get_uniform_directions(Nd, phase_tracking, field_of_view_diameter):
     unit_directions = np.random.normal(size=(Nd, 2))
-    unit_directions *= (np.pi / 180. * field_of_view_diameter / 2.) * np.linalg.norm(unit_directions, axis=1,
+    unit_directions *= (np.pi / 180. * field_of_view_diameter / 2.) / np.linalg.norm(unit_directions, axis=1,
                                                                                      keepdims=True)
     directions = unit_directions * np.sqrt(np.random.uniform(0., 1., size=(Nd, 1)))
     directions = directions + np.asarray(phase_tracking)
@@ -145,7 +145,7 @@ def make_example_datapack(Nd, Nf, Nt, pols=None,
         time0 = at.Time("2019-01-01T00:00:00.000", format='isot')
         altaz = ac.AltAz(location=datapack.array_center.earth_location, obstime=time0)
         up = ac.SkyCoord(alt=90.*au.deg,az=0.*au.deg,frame=altaz).transform_to('icrs')
-        directions = get_uniform_directions(Nd, up, 3.5)
+        directions = get_uniform_directions(Nd, (up.ra.rad, up.dec.rad), 3.5)
         datapack.set_directions(None,directions)
         patch_names, _ = datapack.directions
         antenna_labels, _ = datapack.antennas
