@@ -21,4 +21,4 @@ timestamp, times = datapack.get_antennas(axes['time'])
 freq_labels, freqs = datapack.get_freqs(axes['freq'])
 pol_labels, pols = datapack.get_pols(axes['pol'])
 ```
-In general the first element returned by all `get_*` methods are string labels, and the second is a dimensionful array, with `astropy` units.
+In general the first element returned by all `get_*` methods are string labels, and the second is a dimensionful `astropy` object, e.g. `ICRS` object, `Time` object etc.
