@@ -1,4 +1,4 @@
-from h5parm.utils import make_example_datapack, make_soltab
+from h5parm.utils import make_example_datapack, make_soltab, get_uniform_directions_on_S2
 import numpy as np
 import pytest
 
@@ -27,3 +27,10 @@ def test_datapack():
     assert 'sol001' not in datapack.solsets
     make_soltab(datapack, to_solset='sol001')
     assert 'sol001' in datapack.solsets
+
+
+def test_get_uniform_directions_on_S2():
+    directions = get_uniform_directions_on_S2(100, [0,85], 4)
+    import pylab as plt
+    plt.scatter(directions[:,0], directions[:,1])
+    plt.show()

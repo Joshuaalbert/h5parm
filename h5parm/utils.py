@@ -1,11 +1,13 @@
 import numpy as np
 import logging
+
 logger = logging.getLogger(__name__)
 import os
 from h5parm.datapack import DataPack
 import astropy.time as at
 import astropy.coordinates as ac
 import astropy.units as au
+
 
 def wrap(phi):
     """
@@ -16,6 +18,7 @@ def wrap(phi):
     Returns: wrapped phi
     """
     return (phi + np.pi) % (2 * np.pi) - np.pi
+
 
 def create_empty_datapack(Nd, Nf, Nt, pols=None,
                           field_of_view_diameter=4.,
@@ -78,14 +81,14 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
         if phase_tracking is None:
             up = ac.SkyCoord(alt=90. * au.deg, az=0. * au.deg, frame=altaz).transform_to('icrs')
             phase_tracking = (up.ra.deg, up.dec.deg)
-        phase_tracking = ac.ICRS(phase_tracking[0]*au.deg, phase_tracking[1]*au.deg)
+        phase_tracking = ac.ICRS(phase_tracking[0] * au.deg, phase_tracking[1] * au.deg)
         up = phase_tracking.transform_to(altaz)
         if up.alt.deg < 0.:
             logger.warning("Phase tracking center below horizon at start of observation.")
         else:
             logger.info(f"Phase tracking altitude: {up.alt.deg} degrees")
         phase_tracking = (phase_tracking.ra.rad, phase_tracking.dec.rad)
-        directions = get_uniform_directions(Nd, phase_tracking, field_of_view_diameter)
+        directions = get_uniform_directions_on_S2(Nd, phase_tracking, field_of_view_diameter)
         datapack.set_directions(None, directions)
         patch_names, _ = datapack.directions
         antenna_labels, _ = datapack.antennas
@@ -93,9 +96,8 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
         antennas = antennas.cartesian.xyz.to(au.km).value.T
         Na = antennas.shape[0]
 
-        times = at.Time(time0.mjd + (np.arange(Nt) * time_resolution)/86400., format='mjd').mjd * 86400.  # mjs
+        times = at.Time(time0.mjd + (np.arange(Nt) * time_resolution) / 86400., format='mjd').mjd * 86400.  # mjs
         freqs = np.linspace(min_freq, max_freq, Nf) * 1e6
-
 
         Npol = len(pols)
         dtecs = np.zeros((Npol, Nd, Na, Nt))
@@ -108,6 +110,35 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
                             pol=pols)
         datapack.add_soltab('tec000', values=dtecs, ant=antenna_labels, dir=patch_names, time=times, pol=pols)
         return datapack
+
+
+def get_uniform_directions_on_S2(Nd, phase_tracking, field_of_view_diameter):
+    ra = phase_tracking[0] * np.pi / 180.
+    dec = phase_tracking[1] * np.pi / 180.
+
+    def dec_to_phi(dec):
+        return 0.5 * np.pi - dec
+
+    phi = dec_to_phi(dec)
+    unit_phase_tracking = np.asarray([np.cos(ra) * np.sin(phi), np.sin(ra) * np.sin(phi), np.cos(phi)])
+    directions = []
+    while len(directions) < Nd:
+        unit_directions = np.random.normal(size=(3,))
+        unit_directions /= np.linalg.norm(unit_directions)
+
+        if np.abs(np.arccos(unit_directions @ unit_phase_tracking)) < 0.5 * field_of_view_diameter * np.pi / 180.:
+            directions.append(unit_directions)
+
+    def phi_to_dec(phi):
+        return 0.5 * np.pi - phi
+
+    def to_ra_dec(unit_direction):
+        dec = phi_to_dec(wrap(np.arccos(unit_direction[2])))
+        ra = np.arctan2(unit_direction[1], unit_direction[0])
+        return np.asarray([ra, dec])
+
+    directions = list(map(to_ra_dec, directions))
+    return np.asarray(directions)
 
 
 def get_uniform_directions(Nd, phase_tracking, field_of_view_diameter):
@@ -146,19 +177,19 @@ def make_example_datapack(Nd, Nf, Nt, pols=None,
 
     datapack = DataPack(save_name, readonly=False)
     with datapack:
-        datapack.add_solset('sol000',array_file=datapack.lofar_array_hba)
+        datapack.add_solset('sol000', array_file=datapack.lofar_array_hba)
         time0 = at.Time("2019-01-01T00:00:00.000", format='isot')
         altaz = ac.AltAz(location=datapack.array_center.earth_location, obstime=time0)
-        up = ac.SkyCoord(alt=90.*au.deg,az=0.*au.deg,frame=altaz).transform_to('icrs')
-        directions = get_uniform_directions(Nd, up, 3.5)
-        datapack.set_directions(None,directions)
+        up = ac.SkyCoord(alt=90. * au.deg, az=0. * au.deg, frame=altaz).transform_to('icrs')
+        directions = get_uniform_directions_on_S2(Nd, up, 3.5)
+        datapack.set_directions(None, directions)
         patch_names, _ = datapack.directions
         antenna_labels, _ = datapack.antennas
         _, antennas = datapack.get_antennas(antenna_labels)
         antennas = antennas.cartesian.xyz.to(au.km).value.T
         Na = antennas.shape[0]
 
-        times = at.Time(time0.gps+np.arange(Nt)*30., format='gps').mjd * 86400.  # mjs
+        times = at.Time(time0.gps + np.arange(Nt) * 30., format='gps').mjd * 86400.  # mjs
         freqs = np.linspace(120, 168, Nf) * 1e6
         if pols is not None:
             use_pols = True
@@ -170,17 +201,21 @@ def make_example_datapack(Nd, Nf, Nt, pols=None,
         tec_conversion = TEC_CONV / freqs  # Nf
 
         dtecs = np.random.normal(0., 150., size=(Npol, Nd, Na, Nt))
-        dtecs -= dtecs[:,:,0:1,:]
+        dtecs -= dtecs[:, :, 0:1, :]
 
-        phase = wrap(dtecs[...,None,:]*tec_conversion[:,None])# Npol, Nd, Na, Nf, Nt
+        phase = wrap(dtecs[..., None, :] * tec_conversion[:, None])  # Npol, Nd, Na, Nf, Nt
         amp = np.ones_like(phase)
 
-        datapack.add_soltab('phase000', values=phase, ant=antenna_labels, dir = patch_names, time=times, freq=freqs, pol=pols)
-        datapack.add_soltab('amplitude000', values=amp, ant=antenna_labels, dir = patch_names, time=times, freq=freqs, pol=pols)
-        datapack.add_soltab('tec000', values=dtecs, ant=antenna_labels, dir = patch_names, time=times, pol=pols)
+        datapack.add_soltab('phase000', values=phase, ant=antenna_labels, dir=patch_names, time=times, freq=freqs,
+                            pol=pols)
+        datapack.add_soltab('amplitude000', values=amp, ant=antenna_labels, dir=patch_names, time=times, freq=freqs,
+                            pol=pols)
+        datapack.add_soltab('tec000', values=dtecs, ant=antenna_labels, dir=patch_names, time=times, pol=pols)
         return datapack
 
-def make_soltab(datapack:DataPack, from_solset='sol000', to_solset='sol000', from_soltab='phase000', to_soltab='tec000',
+
+def make_soltab(datapack: DataPack, from_solset='sol000', to_solset='sol000', from_soltab='phase000',
+                to_soltab='tec000',
                 select=None, directions=None, patch_names=None, remake_solset=False, to_datapack=None):
     """
     Adds a new soltab to the h5parm with a soltab copying over structure from preexisting solset/soltab.
