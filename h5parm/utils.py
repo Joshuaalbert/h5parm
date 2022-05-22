@@ -87,6 +87,7 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
             logger.warning("Phase tracking center below horizon at start of observation.")
         else:
             logger.info(f"Phase tracking altitude: {up.alt.deg} degrees")
+        logger.info(f"Phase tracking RA: {phase_tracking.ra.deg} deg, DEC {phase_tracking.dec.deg} deg")
         phase_tracking = (phase_tracking.ra.rad, phase_tracking.dec.rad)
         directions = get_uniform_directions_on_S2(Nd, phase_tracking, field_of_view_diameter)
         datapack.set_directions(None, directions)
@@ -112,16 +113,30 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
         return datapack
 
 
-def get_uniform_directions_on_S2(Nd, phase_tracking, field_of_view_diameter):
-    ra = phase_tracking[0] * np.pi / 180.
-    dec = phase_tracking[1] * np.pi / 180.
+def get_uniform_directions_on_S2(Nd, phase_tracking, field_of_view_diameter, source_in_centre:bool=True):
+    """
+    Get uniform directions on the sphere constrained to a given angular separation.
+
+    Args:
+        Nd:
+        phase_tracking: tuple RA,DEC in radians
+        field_of_view_diameter: field of view in degrees
+
+    Returns:
+        [Nd, 2] array of ra,dec in radians
+    """
+    ra = phase_tracking[0]# * np.pi / 180.
+    dec = phase_tracking[1]# * np.pi / 180.
 
     def dec_to_phi(dec):
         return 0.5 * np.pi - dec
 
     phi = dec_to_phi(dec)
     unit_phase_tracking = np.asarray([np.cos(ra) * np.sin(phi), np.sin(ra) * np.sin(phi), np.cos(phi)])
-    directions = []
+    if source_in_centre:
+        directions = [unit_phase_tracking]
+    else:
+        directions = []
     while len(directions) < Nd:
         unit_directions = np.random.normal(size=(3,))
         unit_directions /= np.linalg.norm(unit_directions)
