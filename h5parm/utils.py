@@ -285,8 +285,8 @@ def make_soltab(datapack: DataPack, from_solset='sol000', to_solset='sol000', fr
                                                      directions.dec.to(au.rad).value], axis=1),
                                 patch_names=patch_names)
         for soltab in to_soltab:
-            if not soltab.endswith("000"):
-                raise ValueError("By Losoto convention soltabs should end in XXX or similar. We only support XXX=000.")
+#             if not soltab.endswith("000"):
+#                 raise ValueError("By Losoto convention soltabs should end in XXX or similar. We only support XXX=000.")
             if 'tec' in soltab:
                 datapack.add_soltab(soltab, weightDtype='f16', time=times.mjd * 86400., pol=pol_labels,
                                     ant=antenna_labels,
