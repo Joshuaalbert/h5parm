@@ -1,5 +1,6 @@
-import numpy as np
 import logging
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 import os
@@ -20,7 +21,7 @@ def wrap(phi):
     return (phi + np.pi) % (2 * np.pi) - np.pi
 
 
-def create_empty_datapack(Nd, Nf, Nt, pols=None,
+def create_empty_datapack(Nd: int | None, Nf, Nt, pols=None,
                           field_of_view_diameter=4.,
                           start_time=None,
                           time_resolution=30.,
@@ -28,6 +29,7 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
                           max_freq=166.,
                           array_file=None,
                           phase_tracking=None,
+                          directions: ac.ICRS | None = None,
                           save_name='test_datapack.h5',
                           clobber=False,
                           seed=None) -> DataPack:
@@ -35,7 +37,7 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
     Creates an empty datapack with phase, amplitude and DTEC.
 
     Args:
-        Nd: number of directions
+        Nd: number of directions or None (needs directions given)
         Nf: number of frequencies
         Nt: number of times
         pols: polarisations, ['XX', ...]
@@ -46,6 +48,7 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
         time_resolution: time step in seconds.
         min_freq: minimum frequency in MHz
         max_freq: maximum frequency in MHz
+        sky_model_bbs: optional sky model to use,
         save_name: where to save the H5parm.
         clobber: Whether to overwrite.
         seed: Numpy seed int
@@ -53,7 +56,10 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
     Returns:
         DataPack
     """
-
+    if Nd is None:
+        if directions is None:
+            raise ValueError("Need Nd or directions given.")
+        Nd = len(directions)
     logger.info("=== Creating empty datapack ===")
     if seed is not None:
         np.random.seed(seed)
@@ -89,7 +95,10 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
             logger.info(f"Phase tracking altitude: {up.alt.deg} degrees")
         logger.info(f"Phase tracking RA: {phase_tracking.ra.deg} deg, DEC {phase_tracking.dec.deg} deg")
         phase_tracking = (phase_tracking.ra.rad, phase_tracking.dec.rad)
-        directions = get_uniform_directions_on_S2(Nd, phase_tracking, field_of_view_diameter)
+        if directions is None:
+            directions = get_uniform_directions_on_S2(Nd, phase_tracking, field_of_view_diameter)
+        if isinstance(directions, ac.ICRS):
+            directions = np.stack([directions.ra.rad, directions.dec.rad], axis=1)  # Nd, 2
         datapack.set_directions(None, directions)
         patch_names, _ = datapack.directions
         antenna_labels, _ = datapack.antennas
@@ -113,7 +122,7 @@ def create_empty_datapack(Nd, Nf, Nt, pols=None,
         return datapack
 
 
-def get_uniform_directions_on_S2(Nd, phase_tracking, field_of_view_diameter, source_in_centre:bool=True):
+def get_uniform_directions_on_S2(Nd, phase_tracking, field_of_view_diameter, source_in_centre: bool = True):
     """
     Get uniform directions on the sphere constrained to a given angular separation.
 
@@ -125,8 +134,8 @@ def get_uniform_directions_on_S2(Nd, phase_tracking, field_of_view_diameter, sou
     Returns:
         [Nd, 2] array of ra,dec in radians
     """
-    ra = phase_tracking[0]# * np.pi / 180.
-    dec = phase_tracking[1]# * np.pi / 180.
+    ra = phase_tracking[0]  # * np.pi / 180.
+    dec = phase_tracking[1]  # * np.pi / 180.
 
     def dec_to_phi(dec):
         return 0.5 * np.pi - dec
@@ -285,8 +294,8 @@ def make_soltab(datapack: DataPack, from_solset='sol000', to_solset='sol000', fr
                                                      directions.dec.to(au.rad).value], axis=1),
                                 patch_names=patch_names)
         for soltab in to_soltab:
-#             if not soltab.endswith("000"):
-#                 raise ValueError("By Losoto convention soltabs should end in XXX or similar. We only support XXX=000.")
+            #             if not soltab.endswith("000"):
+            #                 raise ValueError("By Losoto convention soltabs should end in XXX or similar. We only support XXX=000.")
             if 'tec' in soltab:
                 datapack.add_soltab(soltab, weightDtype='f16', time=times.mjd * 86400., pol=pol_labels,
                                     ant=antenna_labels,
