@@ -97,7 +97,7 @@ def create_empty_datapack(Nd: int | None, Nf, Nt, pols=None,
         phase_tracking = (phase_tracking.ra.rad, phase_tracking.dec.rad)
         if directions is None:
             directions = get_uniform_directions_on_S2(Nd, phase_tracking, field_of_view_diameter)
-        if isinstance(directions, ac.ICRS):
+        if isinstance(directions, (ac.ICRS, ac.SkyCoord)):
             directions = np.stack([directions.ra.rad, directions.dec.rad], axis=1)  # Nd, 2
         datapack.set_directions(None, directions)
         patch_names, _ = datapack.directions
