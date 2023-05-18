@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from h5parm import DataPack
+from h5parm.datapack import load_array_file
 from h5parm.utils import make_example_datapack, make_soltab, get_uniform_directions_on_S2, create_empty_datapack, \
     directions_from_sky_model
 
@@ -54,7 +55,7 @@ def test_create_empty_datapack():
                           phase_tracking=None,
                           directions=None,
                           save_name='test_datapack.h5',
-                          clobber=False,
+                          clobber=True,
                           seed=None)
     with DataPack('test_datapack.h5', readonly=True) as dp:
         phase, axes = dp.phase
@@ -97,3 +98,6 @@ def test_create_empty_datapack():
         assert len(times) == 1
         assert len(freqs) == 2
         assert len(pols) == 1
+        dp.save_array_file('test_array.cfg')
+        labels, antennas_m = load_array_file('test_array.cfg')
+        assert np.allclose(antennas_m, dp.antennas[1])

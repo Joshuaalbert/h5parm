@@ -1,31 +1,50 @@
-import tables as tb
+import itertools
+import logging
 import os
-import numpy as np
-import astropy.units as au
-import astropy.time as at
-import astropy.coordinates as ac
+import re
 import sys
 import time
-import itertools
-import re
-import logging
+from typing import List
+
+import astropy.coordinates as ac
+import astropy.time as at
+import astropy.units as au
+import numpy as np
+import tables as tb
 
 logger = logging.getLogger(__name__)
 
 from h5parm.maintenance import deprecated
 
 
-def _load_array_file(array_file):
+def load_array_file(array_file):
     '''Loads a csv where each row is x,y,z in geocentric ITRS coords of the antennas'''
 
     types = np.dtype({'names': ['station', 'X_ITRS', 'Y_ITRS', 'Z_ITRS'],
                       'formats': ['S16', np.double, np.double, np.double, np.double]})
     d = np.genfromtxt(array_file, comments='#', delimiter=',', dtype=types)
-    labels = np.array(d['station'].astype(str))
+    labels = d['station'].astype(np.str_)
     locs = ac.SkyCoord(x=d['X_ITRS'] * au.m, y=d['Y_ITRS'] * au.m, z=d['Z_ITRS'] * au.m, frame='itrs')
     Nantenna = int(np.size(d['X_ITRS']))
     diameters = None
-    return np.array(labels).astype(np.str_), locs.cartesian.xyz.to(au.m).value.transpose()
+    return labels, locs.cartesian.xyz.to(au.m).value.transpose()
+
+
+def save_array_file(array_file, antennas: ac.ITRS, labels: List[bytes] | None = None):
+    antennas = antennas.cartesian.xyz.to(au.m).value.T
+    Na = len(labels)
+    with open(array_file, 'w') as f:
+        f.write('# Created on {0} by Joshua G. Albert\n'.format(time.strftime("%a %c", time.localtime())))
+        f.write('#ITRS(m)\n')
+        f.write('#station\tX\tY\tZ\n')
+        i = 0
+        while i < Na:
+            f.write(
+                '{3},{0:1.9e},{1:1.9e},{2:1.9e}'.format(antennas[i, 0], antennas[i, 1], antennas[i, 2],
+                                                        labels[i].decode()))
+            if i < Na - 1:
+                f.write('\n')
+            i += 1
 
 
 def update_h5parm(old_h5parm, new_h5parm):
@@ -216,7 +235,7 @@ class DataPack(object):
             self.current_solset = solset
             self.add_antenna_table()
             if antennas is None:
-                antenna_labels, antennas = _load_array_file(self.lofar_array_hba if array_file is None else array_file)
+                antenna_labels, antennas = load_array_file(self.lofar_array_hba if array_file is None else array_file)
             self.set_antennas(antenna_labels, antennas)
             self.add_directions_table()
             if directions is not None:
@@ -346,24 +365,15 @@ class DataPack(object):
 
     def save_array_file(self, array_file):
         with self:
-            ants = self._solset.getAnt()
+            ants = self.antennas
             labels = []
             locs = []
-            for label, pos in ants.items():
+            for label, pos in zip(*ants):
                 labels.append(label)
                 locs.append(pos)
-            Na = len(labels)
-        with open(array_file, 'w') as f:
-            f.write('# Created on {0} by Joshua G. Albert\n'.format(time.strftime("%a %c", time.localtime())))
-            f.write('# ITRS(m)\n')
-            f.write('# X\tY\tZ\tlabels\n')
-            i = 0
-            while i < Na:
-                f.write(
-                    '{0:1.9e}\t{1:1.9e}\t{2:1.9e}\t{4}'.format(locs[i][0], locs[i][1], locs[i][2], labels[i]))
-                if i < Na - 1:
-                    f.write('\n')
-                i += 1
+        locs = np.asarray(locs)
+        antennas = ac.ITRS(x=locs[:, 0] * au.m, y=locs[:, 1] * au.m, z=locs[:, 2] * au.m)
+        save_array_file(array_file, antennas=antennas, labels=labels)
 
     @property
     def antennas(self):
@@ -766,7 +776,7 @@ class DataPack(object):
 
     def get_freqs(self, freqs):
         labs = ['{:.1f}MHz'.format(f / 1e6) for f in freqs]
-        return np.array(labs), freqs*au.Hz
+        return np.array(labs), freqs * au.Hz
 
     def get_pols(self, pols):
         with self:
