@@ -41,7 +41,7 @@ def save_array_file(array_file, antennas: ac.ITRS, labels: List[bytes] | None = 
         while i < Na:
             f.write(
                 '{3},{0:1.9e},{1:1.9e},{2:1.9e}'.format(antennas[i, 0], antennas[i, 1], antennas[i, 2],
-                                                        labels[i].decode()))
+                                                        labels[i]))
             if i < Na - 1:
                 f.write('\n')
             i += 1
