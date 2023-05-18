@@ -1,4 +1,6 @@
 import logging
+import re
+from typing import List
 
 import numpy as np
 
@@ -312,3 +314,74 @@ def make_soltab(datapack: DataPack, from_solset='sol000', to_solset='sol000', fr
             if 'amplitude' in soltab:
                 datapack.add_soltab(soltab, weightDtype='f16', freq=freqs, time=times.mjd * 86400., pol=pol_labels,
                                     ant=antenna_labels, dir=patch_names)
+
+
+def extract_bbs_format(text) -> List[str]:
+    """
+    Gets the format string from a line in BBS file.
+
+    :param text: text that should start with '#' and end with 'format'
+
+    :return: list of field names
+    """
+    pattern = r'\((.*?)\)'
+    matches = re.findall(pattern, text)
+    if matches:
+        return [field.strip() for field in matches[0].split(',')]
+    else:
+        return []
+
+
+def parse_coordinates(ra_str, dec_str) -> ac.ICRS:
+    """
+    Parses the ra/dec strings of sky model.
+    """
+    try:
+        ra = ra_str.strip()
+        dec = dec_str.strip()
+
+        ra_parts = ra.split(':')
+        ra_str = ' '.join(ra_parts)
+
+        dec_parts = dec.split('.')
+        if len(dec_parts) == 4:
+            dec_parts[-1] = '.'.join(dec_parts[-2:])
+            dec_parts = dec_parts[:-1]
+        dec_str = ' '.join(dec_parts)
+
+        coord = ac.SkyCoord(ra_str, dec_str, unit=(au.hourangle, au.deg), frame='icrs')
+        return coord.transform_to(ac.ICRS())
+    except ValueError:
+        raise ValueError(f"Invalid coordinate string {ra_str}, {dec_str}.")
+
+
+def directions_from_sky_model(sky_model: str) -> ac.ICRS:
+    """
+    Get directions from BBS sky model.
+
+    :param sky_model: filename of bbs sky model
+
+    :return: ICRS coordinates of sky model point sources
+    """
+    data = []
+    format = None
+    with open(sky_model, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if (line == ''):
+                continue
+            if line.startswith("#") and line.endswith('format'):
+                format = extract_bbs_format(line)
+                continue
+            data.append(list(map(lambda s: s.strip(), line.split(','))))
+    if format is None:
+        raise ValueError(f'Could not find format in sky model {sky_model}')
+    if 'Ra' not in format:
+        raise ValueError(f"Could not find 'Ra' in format {format}.")
+    if 'Dec' not in format:
+        raise ValueError(f"Could not find 'Dec' in format {format}.")
+    ra_idx = format.index('Ra')
+    dec_idx = format.index('Dec')
+    directions = list(map(lambda d: parse_coordinates(d[ra_idx], d[dec_idx]), data))
+    directions = ac.concatenate(directions)
+    return directions.transform_to(ac.ICRS())
