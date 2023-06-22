@@ -4,7 +4,7 @@ import pytest
 from h5parm import DataPack
 from h5parm.datapack import load_array_file
 from h5parm.utils import make_example_datapack, make_soltab, get_uniform_directions_on_S2, create_empty_datapack, \
-    directions_from_sky_model
+    directions_from_sky_model, format_direction_bbs, parse_coordinates_bbs
 
 
 def test_datapack():
@@ -69,7 +69,22 @@ def test_create_empty_datapack():
         assert len(freqs) == 2
         assert len(pols) == 1
 
+    sky_model_bbs = "# (Name, Type, Ra, Dec, I) = format\n" \
+                    "A, POINT, 00:00:00.123456, +37.07.47.12345, 1.0\n" \
+                    "B, POINT, 00:00:00.123456, +37.37.47.12345, 1.0"
+    with open('test_sky_model.bbs', 'w') as f:
+        f.write(sky_model_bbs)
+
     directions = directions_from_sky_model('test_sky_model.bbs')
+    assert len(directions) == 2
+
+    assert format_direction_bbs(directions[0]) == ("00:00:00.123456", "+37.07.47.12345")
+
+    assert format_direction_bbs(parse_coordinates_bbs('00:00:00.123456', '+37.07.47.12345')) == (
+    "00:00:00.123456", "+37.07.47.12345")
+    assert format_direction_bbs(parse_coordinates_bbs('00:00:00.123456', '-37.07.47.12345')) == (
+    "00:00:00.123456", "-37.07.47.12345")
+
     Nd = len(directions)
     create_empty_datapack(Nd=Nd,
                           Nf=2,
