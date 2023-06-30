@@ -403,5 +403,5 @@ def directions_from_sky_model(sky_model: str) -> ac.ICRS:
     if len(directions) > 1:
         directions = ac.concatenate(directions)
     else:
-        directions = directions[0]
+        directions = directions[0].reshape((1,))
     return directions.transform_to(ac.ICRS())

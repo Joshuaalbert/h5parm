@@ -70,6 +70,14 @@ def test_create_empty_datapack():
         assert len(pols) == 1
 
     sky_model_bbs = "# (Name, Type, Ra, Dec, I) = format\n" \
+                    "A, POINT, 00:00:00.123456, +37.07.47.12345, 1.0"
+    with open('test_sky_model.bbs', 'w') as f:
+        f.write(sky_model_bbs)
+
+    directions = directions_from_sky_model('test_sky_model.bbs')
+    assert len(directions) == 1
+
+    sky_model_bbs = "# (Name, Type, Ra, Dec, I) = format\n" \
                     "A, POINT, 00:00:00.123456, +37.07.47.12345, 1.0\n" \
                     "B, POINT, 00:00:00.123456, +37.37.47.12345, 1.0"
     with open('test_sky_model.bbs', 'w') as f:
