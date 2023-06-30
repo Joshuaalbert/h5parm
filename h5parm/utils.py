@@ -397,6 +397,11 @@ def directions_from_sky_model(sky_model: str) -> ac.ICRS:
         raise ValueError(f"Could not find 'Dec' in format {format}.")
     ra_idx = format.index('Ra')
     dec_idx = format.index('Dec')
+    if len(data) == 0:
+        raise ValueError(f'No data in skymodel.')
     directions = list(map(lambda d: parse_coordinates_bbs(d[ra_idx], d[dec_idx]), data))
-    directions = ac.concatenate(directions)
+    if len(directions) > 1:
+        directions = ac.concatenate(directions)
+    else:
+        directions = directions[0]
     return directions.transform_to(ac.ICRS())
